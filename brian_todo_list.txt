@@ -1,0 +1,68 @@
+There are two versions of the code "paper" and "release"
+"paper" which is the code used the paper. It has four modes and modes are passed in on the command line
+1- GPU to process a batch of objects
+2- GPU to process a single object
+4- CPU to process a batch of objects
+5- CPU to process a single object
+
+"release" which is a slimmed down version of the code with most of the performance parameters selected for the user and the CPU code removed. The release implementation automatically selects between modes 1 and 2 in the paper implementation.
+
+Example of running the release implementation:
+
+
+For the single object mode:
+$ ./main ../data/243_normalized_ztf_filter2.txt 3.142 150.796 1000000
+
+Load CUDA runtime (initialization overhead)
+
+Dataset file: ../data/243_normalized_ztf_filter2.txt
+Minimum Frequency: 3.142000
+Maximum Frequency: 150.796000
+Number of frequencies to test: 1000000
+Data import: Total rows: 29
+Mode: 2 Detected [Processing a single object]
+Period: 0.096536
+Time to compute kernel: 0.005612
+Total time to compute period: 0.028727
+[Validation] Period: 0.096536
+
+For the batch mode:
+$ ./main ../data/normalized_alltargs.200724_1_log_normal_obs.dat 1.005 150.796 1000000
+
+Load CUDA runtime (initialization overhead)
+
+Dataset file: ../data/normalized_alltargs.200724_1_log_normal_obs.dat
+Minimum Frequency: 1.005000
+Maximum Frequency: 150.796000
+Number of frequencies to test: 1000000
+Data import: Total rows: 165221
+Mode: 1 Detected [Processing a batch of objects]
+Unique objects in file: 999
+Time to compute kernel: 25.099782
+Compute period from pgram on CPU:
+Time to compute the periods on the CPU using the pgram: 0.426162
+Total time to compute batch: 26.396811
+[Validation] Sum of all periods: 716.437798
+
+
+
+
+
+Brian to do list:
+
+Regarding code, everything you need to modify will be in the release implementation
+
+remove params.h file
+-Pass in DTYPE on the comamnd line
+-Pass in print periods on the command line
+-Remember to update makefile to remove the params.h dependency
+
+Add OpenACC implementation to the release implementation
+-Since OpenACC looks more like CPU code you should reference the code in the paper directory to see the CPU code in the paper.
+
+-Add the MIT License to the top of all source files (paper and release implementations) and add our names to the copyright
+-Update the README.md file on GitHub to reflect the new command line arguments and the OpenACC mode.
+-Remove your todo list from the repository (we will make it public after you're done).
+-Potentially other things I forgot to add.
+
+
