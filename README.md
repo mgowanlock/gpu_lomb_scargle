@@ -39,17 +39,29 @@ $ ./main ../data/normalized_alltargs.200724_1_log_normal_obs.dat 1.005 150.796 1
 Load CUDA runtime (initialization overhead)
 
 Dataset file: ../data/normalized_alltargs.200724_1_log_normal_obs.dat
+
 Minimum Frequency: 1.005000
+
 Maximum Frequency: 150.796000
+
 Number of frequencies to test: 1000000
+
 Mode: 1
+
 Data import: Total rows: 165221
+
 Unique objects in file: 999
+
 Time to compute kernel: 24.830843
+
 Compute period from pgram on CPU:
+
 Time to compute the periods on the CPU using the pgram: 0.166939
+
 Total time to compute batch: 25.908213
+
 [Validation] Sum of all periods: 716.437798
+
 
 Example for the single object mode:
 $ ./main ../data/243_normalized_ztf_filter2.txt 3.142 150.796 1000000 2
