@@ -33,8 +33,8 @@ The paper implementation has the following modes:
 * 4- CPU to process a batch of objects
 * 5- CPU to process a single object
 
-Example for the batch mode:\
-$ ./main ../data/normalized_alltargs.200724_1_log_normal_obs.dat 1.005 150.796 1000000\
+Example for the batch mode:
+$ ./main ../data/normalized_alltargs.200724_1_log_normal_obs.dat 1.005 150.796 1000000
 
 Load CUDA runtime (initialization overhead)\
 
@@ -49,11 +49,11 @@ Time to compute kernel: 24.830843\
 Compute period from pgram on CPU:\
 Time to compute the periods on the CPU using the pgram: 0.166939\
 Total time to compute batch: 25.908213\
-[Validation] Sum of all periods: 716.437798\
+[Validation] Sum of all periods: 716.437798
 
 
-Example for the single object mode:\
-$ ./main ../data/243_normalized_ztf_filter2.txt 3.142 150.796 1000000 2\
+Example for the single object mode:
+$ ./main ../data/243_normalized_ztf_filter2.txt 3.142 150.796 1000000 2
 
 Load CUDA runtime (initialization overhead)\
 
@@ -67,7 +67,7 @@ Period: 0.096536\
 Time to compute kernel: 0.005606\
 Maximum power at found period: 1.080289\
 Total time to compute batch: 0.028207\
-[Validation] Period: 0.096536\
+[Validation] Period: 0.096536
 
 ## Running the program using the release implementation (CUDA GPU):
 XXX Brian
