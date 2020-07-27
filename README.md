@@ -1,6 +1,6 @@
 # Lomb-Scargle Algorithm on the GPU (accompanying paper under review).
 
-Authors: Mike Gowanlock and Brian Donnelly
+Code authors: Mike Gowanlock and Brian Donnelly
 
 ## There are three directories:
 * data
