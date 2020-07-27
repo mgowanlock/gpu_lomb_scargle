@@ -33,52 +33,41 @@ The paper implementation has the following modes:
 * 4- CPU to process a batch of objects
 * 5- CPU to process a single object
 
-Example for the batch mode:
-$ ./main ../data/normalized_alltargs.200724_1_log_normal_obs.dat 1.005 150.796 1000000 1
+Example for the batch mode:\
+$ ./main ../data/normalized_alltargs.200724_1_log_normal_obs.dat 1.005 150.796 1000000\
 
-Load CUDA runtime (initialization overhead)
+Load CUDA runtime (initialization overhead)\
 
-Dataset file: ../data/normalized_alltargs.200724_1_log_normal_obs.dat
-
-Minimum Frequency: 1.005000
-
-Maximum Frequency: 150.796000
-
-Number of frequencies to test: 1000000
-
-Mode: 1
-
-Data import: Total rows: 165221
-
-Unique objects in file: 999
-
-Time to compute kernel: 24.830843
-
-Compute period from pgram on CPU:
-
-Time to compute the periods on the CPU using the pgram: 0.166939
-
-Total time to compute batch: 25.908213
-
-[Validation] Sum of all periods: 716.437798
+Dataset file: ../data/normalized_alltargs.200724_1_log_normal_obs.dat\
+Minimum Frequency: 1.005000\
+Maximum Frequency: 150.796000\
+Number of frequencies to test: 1000000\
+Mode: 1\
+Data import: Total rows: 165221\
+Unique objects in file: 999\
+Time to compute kernel: 24.830843\
+Compute period from pgram on CPU:\
+Time to compute the periods on the CPU using the pgram: 0.166939\
+Total time to compute batch: 25.908213\
+[Validation] Sum of all periods: 716.437798\
 
 
-Example for the single object mode:
-$ ./main ../data/243_normalized_ztf_filter2.txt 3.142 150.796 1000000 2
+Example for the single object mode:\
+$ ./main ../data/243_normalized_ztf_filter2.txt 3.142 150.796 1000000 2\
 
-Load CUDA runtime (initialization overhead)
+Load CUDA runtime (initialization overhead)\
 
-Dataset file: ../data/243_normalized_ztf_filter2.txt
-Minimum Frequency: 3.142000
-Maximum Frequency: 150.796000
-Number of frequencies to test: 1000000
-Mode: 2
-Data import: Total rows: 29
-Period: 0.096536
-Time to compute kernel: 0.005606
-Maximum power at found period: 1.080289
-Total time to compute batch: 0.028207
-[Validation] Period: 0.096536
+Dataset file: ../data/243_normalized_ztf_filter2.txt\
+Minimum Frequency: 3.142000\
+Maximum Frequency: 150.796000\
+Number of frequencies to test: 1000000\
+Mode: 2\
+Data import: Total rows: 29\
+Period: 0.096536\
+Time to compute kernel: 0.005606\
+Maximum power at found period: 1.080289\
+Total time to compute batch: 0.028207\
+[Validation] Period: 0.096536\
 
 ## Running the program using the release implementation (CUDA GPU):
 XXX Brian
