@@ -36,7 +36,7 @@ The paper implementation has the following modes:
 Example for the batch mode:
 $ ./main ../data/normalized_alltargs.200724_1_log_normal_obs.dat 1.005 150.796 1000000
 
-Load CUDA runtime (initialization overhead)\
+Load CUDA runtime (initialization overhead)
 
 Dataset file: ../data/normalized_alltargs.200724_1_log_normal_obs.dat\
 Minimum Frequency: 1.005000\
@@ -55,7 +55,7 @@ Total time to compute batch: 25.908213\
 Example for the single object mode:
 $ ./main ../data/243_normalized_ztf_filter2.txt 3.142 150.796 1000000 2
 
-Load CUDA runtime (initialization overhead)\
+Load CUDA runtime (initialization overhead)
 
 Dataset file: ../data/243_normalized_ztf_filter2.txt\
 Minimum Frequency: 3.142000\
