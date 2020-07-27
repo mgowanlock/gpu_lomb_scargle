@@ -25,7 +25,7 @@ A makefile has been included for each implementation. Make sure to update the co
 
 ## Running the program using the paper implementation:
 After compiling the computer program, you must enter the following command line arguments:
-<dataset file name> <minimum frequency> <maximum frequency> <number of frequencies to search> <mode>
+\<dataset file name\> \<minimum frequency\> \<maximum frequency\> \<number of frequencies to search\> \<mode\>
   
 The paper implementation has the following modes:
 * 1- GPU to process a batch of objects
