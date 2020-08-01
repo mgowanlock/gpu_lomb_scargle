@@ -9,3 +9,7 @@ __global__ void lombscargleBatch(DTYPE * x, DTYPE * y, struct lookupObj * object
 __global__ void lombscargleBatchSM(DTYPE * x, DTYPE * y, struct lookupObj * objectLookup, DTYPE * pgram,  DTYPE * foundPeriod, const double minFreq, const double maxFreq, const unsigned int numFreqs);
 __global__ void lombscargleOneObject(DTYPE * x, DTYPE * y, DTYPE * pgram,  const unsigned int sizeData, const double minFreq, const double maxFreq, const unsigned int numFreqs);
 __global__ void lombscargleOneObjectSM(DTYPE * x, DTYPE * y, DTYPE * pgram,  const unsigned int sizeData, const double minFreq, const double maxFreq, const unsigned int numFreqs);
+
+__global__ void lombscargleBatchError(DTYPE * x, DTYPE * y, DTYPE * dy, struct lookupObj * objectLookup, DTYPE * pgram,  DTYPE * foundPeriod, 
+	const double minFreq, const double maxFreq, const unsigned int numFreqs);
+__global__ void lombscargleOneObjectError(DTYPE * x, DTYPE * y, DTYPE * dy, DTYPE * pgram, const unsigned int sizeData, const double minFreq, const double maxFreq, const unsigned int numFreqs);

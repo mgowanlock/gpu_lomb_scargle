@@ -43,16 +43,29 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
 
 
 //function prototypes
-void importObjXYData(char * fnamedata, unsigned int * sizeData, unsigned int ** objectId, DTYPE ** timeX, DTYPE ** magY);
+void importObjXYData(char * fnamedata, unsigned int * sizeData, unsigned int ** objectId, DTYPE ** timeX, DTYPE ** magY, DTYPE ** magDY);
+
+//CPU L-S Functions:
 void lombscarglecpu(bool mode, DTYPE * x, DTYPE * y, const unsigned int sizeData, const unsigned int numFreqs, const DTYPE minFreq, const DTYPE maxFreq, const DTYPE freqStep, DTYPE * pgram);
 void lombscarglecpuinnerloop(int iteration, DTYPE * x, DTYPE * y, DTYPE * pgram, DTYPE * freqToTest, const unsigned int sizeData);
 void lombscargleCPUOneObject(DTYPE * timeX,  DTYPE * magY, unsigned int * sizeData, const DTYPE minFreq, const DTYPE maxFreq, const unsigned int numFreqs, DTYPE * foundPeriod, DTYPE * pgram);
-void batchGPULS(unsigned int * objectId, DTYPE * timeX,  DTYPE * magY, unsigned int * sizeData, const DTYPE minFreq, const DTYPE maxFreq, const unsigned int numFreqs, DTYPE * sumPeriods, DTYPE ** pgram, DTYPE * foundPeriod);
-void GPULSOneObject(DTYPE * timeX,  DTYPE * magY, unsigned int * sizeData, const DTYPE minFreq, const DTYPE maxFreq, const unsigned int numFreqs, DTYPE * periodFound, DTYPE ** pgram);
 void lombscargleCPUBatch(unsigned int * objectId, DTYPE * timeX,  DTYPE * magY, unsigned int * sizeData, const DTYPE minFreq, const DTYPE maxFreq, const unsigned int numFreqs, DTYPE * sumPeriods, DTYPE * pgram, DTYPE * foundPeriod);
+
+//With error
+void lombscargleCPUOneObjectError(DTYPE * time, DTYPE * magY, DTYPE * magDY, unsigned int * sizeData, const DTYPE minFreq, const DTYPE maxFreq, const unsigned int numFreqs, DTYPE * foundPeriod, DTYPE * pgram);
+void lombscarglecpuError(bool mode, DTYPE * x, DTYPE * y, DTYPE *dy, const unsigned int sizeData, const unsigned int numFreqs, const DTYPE minFreq, const DTYPE maxFreq, const DTYPE freqStep, DTYPE * pgram);
+void lombscarglecpuinnerloopAstroPy(int iteration, DTYPE * x, DTYPE * y, DTYPE * dy, DTYPE * pgram, DTYPE * freqToTest, const unsigned int sizeData);
+void lombscargleCPUBatchError(unsigned int * objectId, DTYPE * timeX,  DTYPE * magY, DTYPE * magDY, unsigned int * sizeData, const DTYPE minFreq, const DTYPE maxFreq, const unsigned int numFreqs, DTYPE * sumPeriods, DTYPE * pgram, DTYPE * foundPeriod);
+void updateYerrorfactor(DTYPE * y, DTYPE *dy, const unsigned int sizeData);
+
+//GPU functions
+void batchGPULS(unsigned int * objectId, DTYPE * timeX,  DTYPE * magY, DTYPE * magDY, unsigned int * sizeData, const DTYPE minFreq, const DTYPE maxFreq, const unsigned int numFreqs, DTYPE * sumPeriods, DTYPE ** pgram, DTYPE * foundPeriod);
+void GPULSOneObject(DTYPE * timeX,  DTYPE * magY, DTYPE * magDY, unsigned int * sizeData, const DTYPE minFreq, const DTYPE maxFreq, const unsigned int numFreqs, DTYPE * periodFound, DTYPE ** pgram);
 void computeObjectRanges(unsigned int * objectId, unsigned int * sizeData, struct lookupObj ** objectLookup, unsigned int * numUniqueObjects);
 void pinnedMemoryCopyDtoH(DTYPE * pinned_buffer, unsigned int sizeBufferElems, DTYPE * dev_data, DTYPE * pageable, unsigned int sizeTotalData);
+
 void computePeriod(DTYPE * pgram, const unsigned int numFreqs, const DTYPE minFreq, const DTYPE freqStep, DTYPE * foundPeriod);
+
 void warmUpGPU();
 
 
@@ -85,8 +98,8 @@ int main(int argc, char *argv[])
 	
 	char inputFname[500];
 	strcpy(inputFname,argv[1]);
-	const double minFreq=atof(argv[2]); //inclusive
-	const double maxFreq=atof(argv[3]); //exclusive
+	double minFreq=atof(argv[2]); //inclusive
+	double maxFreq=atof(argv[3]); //exclusive
 	const unsigned int freqToTest=atoi(argv[4]);
     int MODE = atoi(argv[5]);
 
@@ -95,6 +108,10 @@ int main(int argc, char *argv[])
 	printf("\nMaximum Frequency: %f",maxFreq);
 	printf("\nNumber of frequencies to test: %u", freqToTest);
 	printf("\nMode: %d", MODE);
+
+	#if ERROR==1
+	printf("\nExecuting L-S variant from AstroPy that propogates error and floats the mean");
+	#endif
 	
 	
 	/////////////
@@ -103,8 +120,9 @@ int main(int argc, char *argv[])
 	unsigned int * objectId=NULL; 
 	DTYPE * timeX=NULL; 
 	DTYPE * magY=NULL;
+	DTYPE * magDY=NULL;
 	unsigned int sizeData;
-	importObjXYData(inputFname, &sizeData, &objectId, &timeX, &magY);	
+	importObjXYData(inputFname, &sizeData, &objectId, &timeX, &magY, &magDY);	
 	
 	//pgram allocated in the functions below
 	//Stores the LS power for each frequency
@@ -120,14 +138,14 @@ int main(int argc, char *argv[])
 		
 		double tstart=omp_get_wtime();
 		
-		batchGPULS(objectId, timeX, magY, &sizeData, minFreq, maxFreq, freqToTest, &sumPeriods, &pgram, foundPeriod);
+		batchGPULS(objectId, timeX, magY, magDY, &sizeData, minFreq, maxFreq, freqToTest, &sumPeriods, &pgram, foundPeriod);
 		
 		double tend=omp_get_wtime();
 		double totalTime=tend-tstart;
 		printf("\nTotal time to compute batch: %f", totalTime);
 		printf("\n[Validation] Sum of all periods: %f", sumPeriods);
 
-		gpu_stats<<totalTime<<", "<< inputFname<<", Sum of periods: "<<sumPeriods<<", Min/Max Freq: "<<minFreq<<"/"<<maxFreq<<",  Num tested freq: "<<freqToTest<<", MODE: "<<MODE<<", NTHREADSCPU/BLOCKSIZE/SHMEM/RETURNPGRAM/PINNED/SIZEPINNEDBUFFERMIB/NSTREAMS/DTYPE: "<<NTHREADSCPU<<", "<<BLOCKSIZE<<", "<<SHMEM<<", "<<RETURNPGRAM<<", "<<PINNED<<", "<<SIZEPINNEDBUFFERMIB<<", "<<NSTREAMS<<", "<<STR(DTYPE)<<endl;
+		gpu_stats<<totalTime<<", "<< inputFname<<", Sum of periods: "<<sumPeriods<<", Min/Max Freq: "<<minFreq<<"/"<<maxFreq<<",  Num tested freq: "<<freqToTest<<", MODE: "<<MODE<<", NTHREADSCPU/BLOCKSIZE/ERROR/SHMEM/RETURNPGRAM/PINNED/SIZEPINNEDBUFFERMIB/NSTREAMS/DTYPE: "<<NTHREADSCPU<<", "<<BLOCKSIZE<<", "<<ERROR<<", "<<SHMEM<<", "<<RETURNPGRAM<<", "<<PINNED<<", "<<SIZEPINNEDBUFFERMIB<<", "<<NSTREAMS<<", "<<STR(DTYPE)<<endl;
 	}
 	//One object to compute on the GPU
 	else if (MODE==2)
@@ -135,38 +153,52 @@ int main(int argc, char *argv[])
 		DTYPE periodFound=0;	
 		double tstart=omp_get_wtime();
 		
-		GPULSOneObject(timeX, magY, &sizeData, minFreq, maxFreq, freqToTest, &periodFound, &pgram);
-	
+		#if ERROR==1
+		updateYerrorfactor(magY, magDY, sizeData);
+		#endif	
+
+		GPULSOneObject(timeX, magY, magDY, &sizeData, minFreq, maxFreq, freqToTest, &periodFound, &pgram);
+		
 		double tend=omp_get_wtime();
 		double totalTime=tend-tstart;
 		printf("\nTotal time to compute batch: %f", totalTime);
 		printf("\n[Validation] Period: %f", periodFound);
 
-		gpu_stats<<totalTime<<", "<< inputFname<<", Sum of periods: "<<periodFound<<", Min/Max Freq: "<<minFreq<<"/"<<maxFreq<<",  Num tested freq: "<<freqToTest<<", MODE: "<<MODE<<", NTHREADSCPU/BLOCKSIZE/SHMEM/RETURNPGRAM/PINNED/SIZEPINNEDBUFFERMIB/NSTREAMS/DTYPE: "<<NTHREADSCPU<<", "<<BLOCKSIZE<<", "<<SHMEM<<", "<<RETURNPGRAM<<", "<<PINNED<<", "<<SIZEPINNEDBUFFERMIB<<", "<<NSTREAMS<<", "<<STR(DTYPE)<<endl;
+		gpu_stats<<totalTime<<", "<< inputFname<<", Sum of periods: "<<periodFound<<", Min/Max Freq: "<<minFreq<<"/"<<maxFreq<<",  Num tested freq: "<<freqToTest<<", MODE: "<<MODE<<", NTHREADSCPU/BLOCKSIZE/ERROR/SHMEM/RETURNPGRAM/PINNED/SIZEPINNEDBUFFERMIB/NSTREAMS/DTYPE: "<<NTHREADSCPU<<", "<<BLOCKSIZE<<", "<<ERROR<<", "<<SHMEM<<", "<<RETURNPGRAM<<", "<<PINNED<<", "<<SIZEPINNEDBUFFERMIB<<", "<<NSTREAMS<<", "<<STR(DTYPE)<<endl;
 	}
 	//CPU- batch processing
 	else if (MODE==4)
 	{
 		DTYPE sumPeriods=0;
 		double tstart=omp_get_wtime();
+		#if ERROR==0
 		lombscargleCPUBatch(objectId, timeX, magY, &sizeData, minFreq, maxFreq, freqToTest, &sumPeriods, pgram, foundPeriod);
+		#endif
+		#if ERROR==1
+		lombscargleCPUBatchError(objectId, timeX, magY, magDY, &sizeData, minFreq, maxFreq, freqToTest, &sumPeriods, pgram, foundPeriod);
+		#endif
 		double tend=omp_get_wtime();
 		double totalTime=tend-tstart;
 		printf("\nTotal time to compute batch: %f", totalTime);
 		printf("\n[Validation] Sum of all periods: %f", sumPeriods);
-		gpu_stats<<totalTime<<", "<< inputFname<<", Sum of periods: "<<sumPeriods<<", Min/Max Freq: "<<minFreq<<"/"<<maxFreq<<",  Num tested freq: "<<freqToTest<<", MODE: "<<MODE<<", NTHREADSCPU: "<<NTHREADSCPU<<endl;
+		gpu_stats<<totalTime<<", "<< inputFname<<", Sum of periods: "<<sumPeriods<<", Min/Max Freq: "<<minFreq<<"/"<<maxFreq<<",  Num tested freq: "<<freqToTest<<", MODE: "<<MODE<<", NTHREADSCPU: "<<NTHREADSCPU<<", ERROR: "<<ERROR<<", DTYPE: "<<STR(DTYPE)<<endl;
 	}
 	//CPU- one object
 	else if (MODE==5)
 	{
 		DTYPE foundPeriod=0;
 		double tstart=omp_get_wtime();
+		#if ERROR==0
 		lombscargleCPUOneObject(timeX, magY, &sizeData, minFreq, maxFreq, freqToTest, &foundPeriod, pgram);
+		#endif
+		#if ERROR==1
+		lombscargleCPUOneObjectError(timeX, magY, magDY, &sizeData, minFreq, maxFreq, freqToTest, &foundPeriod, pgram);
+		#endif
 		double tend=omp_get_wtime();
 		double totalTime=tend-tstart;
 		printf("\nTotal time to compute pgram (one object): %f", totalTime);
 		printf("\n[Validation] Period: %f", foundPeriod);
-		gpu_stats<<totalTime<<", "<< inputFname<<", Sum of periods: "<<foundPeriod<<", Min/Max Freq: "<<minFreq<<"/"<<maxFreq<<",  Num tested freq: "<<freqToTest<<", MODE: "<<MODE<<", NTHREADSCPU: "<<NTHREADSCPU<<endl;
+		gpu_stats<<totalTime<<", "<< inputFname<<", Sum of periods: "<<foundPeriod<<", Min/Max Freq: "<<minFreq<<"/"<<maxFreq<<",  Num tested freq: "<<freqToTest<<", MODE: "<<MODE<<", NTHREADSCPU: "<<NTHREADSCPU<<", ERROR: "<<ERROR<<", DTYPE: "<<STR(DTYPE)<<endl;
 	}
 
 
@@ -176,6 +208,7 @@ int main(int argc, char *argv[])
 	free(objectId);
 	free(timeX);
 	free(magY);
+	free(magDY);
 	free(pgram);
 
 
@@ -288,7 +321,7 @@ void pinnedMemoryCopyDtoH(DTYPE * pinned_buffer, unsigned int sizeBufferElems, D
 
 
 //Compute pgram for one object, not a batch of objects
-void GPULSOneObject(DTYPE * timeX,  DTYPE * magY, unsigned int * sizeData, const DTYPE minFreq, const DTYPE maxFreq, const unsigned int numFreqs, DTYPE * periodFound, DTYPE ** pgram)
+void GPULSOneObject(DTYPE * timeX,  DTYPE * magY, DTYPE * magDY, unsigned int * sizeData, const DTYPE minFreq, const DTYPE maxFreq, const unsigned int numFreqs, DTYPE * periodFound, DTYPE ** pgram)
 {
 	
 
@@ -304,6 +337,11 @@ void GPULSOneObject(DTYPE * timeX,  DTYPE * magY, unsigned int * sizeData, const
 	gpuErrchk(cudaMalloc((void**)&dev_timeX, sizeof(DTYPE)*(*sizeData)));
 	gpuErrchk(cudaMalloc((void**)&dev_magY, sizeof(DTYPE)*(*sizeData)));
 	
+	//If astropy implementation with error
+	#if ERROR==1
+	DTYPE * dev_magDY;
+	gpuErrchk(cudaMalloc((void**)&dev_magDY, sizeof(DTYPE)*(*sizeData)));	
+	#endif
 	
 	// Result periodogram
 	//need to allocate it on the GPUeven if we do not return it to the host so that we can find the maximum power
@@ -320,15 +358,21 @@ void GPULSOneObject(DTYPE * timeX,  DTYPE * magY, unsigned int * sizeData, const
 	gpuErrchk(cudaMemcpy( dev_magY, magY, sizeof(DTYPE)*(*sizeData), cudaMemcpyHostToDevice));
 	gpuErrchk(cudaMemcpy( dev_sizeData, sizeData, sizeof(unsigned int), cudaMemcpyHostToDevice));
 
+	#if ERROR==1
+	gpuErrchk(cudaMemcpy( dev_magDY, magDY, sizeof(DTYPE)*(*sizeData), cudaMemcpyHostToDevice));
+	#endif
+
 	const unsigned int szData=*sizeData;
 	const unsigned int numBlocks=ceil(numFreqs*1.0/BLOCKSIZE*1.0);
 	
 	double tstart=omp_get_wtime();
   	//Do lomb-scargle
-  	#if SHMEM==0
+  	#if ERROR==0 && SHMEM==0
   	lombscargleOneObject<<< numBlocks, BLOCKSIZE>>>(dev_timeX, dev_magY, dev_pgram, szData, minFreq, maxFreq, numFreqs);
-  	#elif SHMEM==1
+  	#elif ERROR==0 && SHMEM==1
   	lombscargleOneObjectSM<<< numBlocks, BLOCKSIZE>>>(dev_timeX, dev_magY, dev_pgram, szData, minFreq, maxFreq, numFreqs);
+  	#elif ERROR==1
+  	lombscargleOneObjectError<<< numBlocks, BLOCKSIZE>>>(dev_timeX, dev_magY, dev_magDY, dev_pgram, szData, minFreq, maxFreq, numFreqs);
   	#endif
 
 
@@ -341,6 +385,7 @@ void GPULSOneObject(DTYPE * timeX,  DTYPE * magY, unsigned int * sizeData, const
   	double freqStep=(maxFreq-minFreq)/(numFreqs*1.0);
   	//Validation: total period values
 	*periodFound=(1.0/(minFreq+(maxPowerIdx*freqStep)))*2.0*M_PI;
+	
   	printf("\nPeriod: %f", *periodFound);
   	cudaDeviceSynchronize();
 
@@ -430,11 +475,14 @@ void GPULSOneObject(DTYPE * timeX,  DTYPE * magY, unsigned int * sizeData, const
   	//free memory-- CUDA
 
   	cudaFree(dev_timeX);
-  	cudaFree(dev_timeX);
   	cudaFree(dev_magY);
 	cudaFree(dev_sizeData);
 	cudaFree(dev_pgram);
 	cudaFree(dev_foundPeriod);
+
+	#if ERROR==1
+	cudaFree(dev_magDY);
+	#endif
 
 	#if PINNED==1 && RETURNPGRAM==1
 	cudaFreeHost(pinned_buffer);
@@ -469,7 +517,7 @@ void GPULSOneObject(DTYPE * timeX,  DTYPE * magY, unsigned int * sizeData, const
 
 
 //Send the minimum and maximum frequency and number of frequencies to test to the GPU (not a list of frequencies)
-void batchGPULS(unsigned int * objectId, DTYPE * timeX,  DTYPE * magY, unsigned int * sizeData, const DTYPE minFreq, const DTYPE maxFreq, const unsigned int numFreqs, DTYPE * sumPeriods, DTYPE ** pgram, DTYPE * foundPeriod)
+void batchGPULS(unsigned int * objectId, DTYPE * timeX,  DTYPE * magY, DTYPE * magDY, unsigned int * sizeData, const DTYPE minFreq, const DTYPE maxFreq, const unsigned int numFreqs, DTYPE * sumPeriods, DTYPE ** pgram, DTYPE * foundPeriod)
 {
 	
 
@@ -495,6 +543,21 @@ void batchGPULS(unsigned int * objectId, DTYPE * timeX,  DTYPE * magY, unsigned 
 	//allocate memory on the GPU
 	gpuErrchk(cudaMalloc((void**)&dev_timeX, sizeof(DTYPE)*(*sizeData)));
 	gpuErrchk(cudaMalloc((void**)&dev_magY, sizeof(DTYPE)*(*sizeData)));
+
+	//If astropy implementation with error
+	#if ERROR==1
+	DTYPE * dev_magDY;
+	gpuErrchk(cudaMalloc((void**)&dev_magDY, sizeof(DTYPE)*(*sizeData)));
+
+	//Need to incorporate error into magnitudes
+	for (int i=0; i<numUniqueObjects; i++)
+	{
+		unsigned int idxMin=objectLookup[i].idxMin;
+		unsigned int idxMax=objectLookup[i].idxMax;
+		unsigned int sizeDataForObject=idxMax-idxMin+1;
+		updateYerrorfactor(&magY[idxMin], &magDY[idxMin], sizeDataForObject);
+	}	
+	#endif
 	
 	#if RETURNPGRAM==1
 	// Result periodogram must be number of unique objects * the size of the frequency array
@@ -522,14 +585,20 @@ void batchGPULS(unsigned int * objectId, DTYPE * timeX,  DTYPE * magY, unsigned 
 	gpuErrchk(cudaMemcpy( dev_sizeData, sizeData, sizeof(unsigned int), cudaMemcpyHostToDevice));
 	gpuErrchk(cudaMemcpy( dev_objectLookup, objectLookup, sizeof(lookupObj)*(numUniqueObjects), cudaMemcpyHostToDevice));
 
+	#if ERROR==1
+	gpuErrchk(cudaMemcpy( dev_magDY, magDY, sizeof(DTYPE)*(*sizeData), cudaMemcpyHostToDevice));
+	#endif
+
 	
 	const int numBlocks=numUniqueObjects;
 	double tstart=omp_get_wtime();
   	//Do lomb-scargle
-  	#if SHMEM==0
+  	#if ERROR==0 && SHMEM==0
   	lombscargleBatch<<< numBlocks, BLOCKSIZE>>>(dev_timeX, dev_magY, dev_objectLookup, dev_pgram, dev_foundPeriod, minFreq, maxFreq, numFreqs);
-  	#elif SHMEM==1	
+  	#elif ERROR==0 && SHMEM==1
   	lombscargleBatchSM<<< numBlocks, BLOCKSIZE>>>(dev_timeX, dev_magY, dev_objectLookup, dev_pgram, dev_foundPeriod, minFreq, maxFreq, numFreqs);
+  	#elif ERROR==1 //no SHMEM option
+  	lombscargleBatchError<<< numBlocks, BLOCKSIZE>>>(dev_timeX, dev_magY, dev_magDY, dev_objectLookup, dev_pgram, dev_foundPeriod, minFreq, maxFreq, numFreqs);
   	#endif
 
   	cudaDeviceSynchronize();
@@ -590,7 +659,10 @@ void batchGPULS(unsigned int * objectId, DTYPE * timeX,  DTYPE * magY, unsigned 
 	  		}
 	  	}
 
-	  	foundPeriod[i]=(1.0/(minFreq+(maxPowerIdx*freqStep)))*2.0*M_PI;
+	  	//Validation: total period values
+		foundPeriod[i]=(1.0/(minFreq+(maxPowerIdx*freqStep)))*2.0*M_PI;
+
+	  	
   	
 	  	// if (i==0)
 	  	// {
@@ -635,7 +707,7 @@ void batchGPULS(unsigned int * objectId, DTYPE * timeX,  DTYPE * magY, unsigned 
 		bestperiodsoutput<<foundPeriod[i]<<endl;
 	}
   	bestperiodsoutput.close();
-
+	
   	//Output pgram to file
   	char fnameoutput[]="pgram.txt";
   	printf("\nPrinting the prgram to file: %s", fnameoutput);
@@ -655,16 +727,21 @@ void batchGPULS(unsigned int * objectId, DTYPE * timeX,  DTYPE * magY, unsigned 
 
   	//free memory-- CUDA
   	cudaFree(dev_timeX);
-  	cudaFree(dev_timeX);
   	cudaFree(dev_magY);
 	cudaFree(dev_sizeData);
 	cudaFree(dev_pgram);
 	cudaFree(dev_foundPeriod);
 	cudaFree(dev_objectLookup);
 
+	#if ERROR==1
+	cudaFree(dev_magDY); 
+	#endif
+
 	#if PINNED==1 && RETURNPGRAM==1
 	cudaFreeHost(pinned_buffer);
 	#endif
+
+	
 	
 
 
@@ -691,6 +768,81 @@ void lombscargleCPUOneObject(DTYPE * timeX,  DTYPE * magY, unsigned int * sizeDa
 	#if PRINTPERIODS==1
 	printf("\nPeriod: %f", *foundPeriod);
 	#endif
+}
+
+//uses error propogation
+void lombscargleCPUOneObjectError(DTYPE * timeX,  DTYPE * magY, DTYPE * magDY, unsigned int * sizeData, const DTYPE minFreq, const DTYPE maxFreq, const unsigned int numFreqs, DTYPE * foundPeriod, DTYPE * pgram)
+{
+	pgram=(DTYPE *)malloc(sizeof(DTYPE)*(numFreqs));
+
+	const DTYPE freqStep=(maxFreq-minFreq)/(numFreqs*1.0);	
+
+	//1 refers to the mode of executing in parallel inside the LS algorithm
+	lombscarglecpuError(1, timeX, magY, magDY, *sizeData, numFreqs, minFreq, maxFreq, freqStep, pgram);	
+	computePeriod(pgram, numFreqs, minFreq, freqStep, foundPeriod);
+
+	#if PRINTPERIODS==1
+	printf("\nPeriod: %f", *foundPeriod);
+	#endif
+
+	// char fnameoutput[]="pgram.txt";
+ //  	printf("\nPrinting the prgram to file: %s", fnameoutput);
+	// ofstream pgramoutput;
+	// pgramoutput.open(fnameoutput,ios::out);	
+ //  	pgramoutput.precision(17);
+ //  	for (unsigned int i=0; i<numFreqs; i++)
+	// {
+	// 	pgramoutput<<pgram[i]<<endl;
+	// }
+ //  	pgramoutput.close();
+		
+
+}
+
+
+void lombscargleCPUBatchError(unsigned int * objectId, DTYPE * timeX,  DTYPE * magY, DTYPE * magDY, unsigned int * sizeData, const DTYPE minFreq, const DTYPE maxFreq, const unsigned int numFreqs, DTYPE * sumPeriods, DTYPE * pgram, DTYPE * foundPeriod)
+{
+
+
+	//compute the object ranges in the arrays and store in struct
+	//This is given by the objectId
+	struct lookupObj * objectLookup=NULL;
+	unsigned int numUniqueObjects;
+	computeObjectRanges(objectId, sizeData, &objectLookup, &numUniqueObjects);
+	pgram=(DTYPE *)malloc(sizeof(DTYPE)*(numFreqs)*numUniqueObjects);
+	foundPeriod=(DTYPE *)malloc(sizeof(DTYPE)*numUniqueObjects);
+
+	const DTYPE freqStep=(maxFreq-minFreq)/(numFreqs*1.0);	
+
+	//for each object, call the sequential cpu algorithm
+	#pragma omp parallel for num_threads(NTHREADSCPU) schedule(dynamic)
+	for (int i=0; i<numUniqueObjects; i++)
+	{
+		unsigned int idxMin=objectLookup[i].idxMin;
+		unsigned int idxMax=objectLookup[i].idxMax;
+		unsigned int sizeDataForObject=idxMax-idxMin+1;
+		//0 refers to the mode of executing sequentially inside the LS algorithm
+		lombscarglecpuError(0, &timeX[idxMin], &magY[idxMin], &magDY[idxMin], sizeDataForObject, numFreqs, minFreq, maxFreq, freqStep, pgram+(i*numFreqs));	
+		computePeriod(pgram+(i*numFreqs), numFreqs, minFreq, freqStep, &foundPeriod[i]);
+	}
+
+	#if PRINTPERIODS==1
+	for (int i=0; i<numUniqueObjects; i++)
+	{
+	printf("\nObject: %d, Period: %f",objectLookup[i].objId, foundPeriod[i]);
+	}
+	#endif
+
+
+
+	//Validation
+ 	for (int i=0; i<numUniqueObjects; i++)
+  	{
+	  	(*sumPeriods)+=foundPeriod[i];
+  	}
+
+	
+
 }
 
 
@@ -752,7 +904,10 @@ void computePeriod(DTYPE * pgram, const unsigned int numFreqs, const DTYPE minFr
 	  		}
 	  	}
 
-	  	*foundPeriod=(1.0/(minFreq+(maxPowerIdx*freqStep)))*2.0*M_PI;
+	  	// printf("\nMax power idx: %d", maxPowerIdx);
+	  	
+	  	//Validation: total period values
+		*foundPeriod=(1.0/(minFreq+(maxPowerIdx*freqStep)))*2.0*M_PI;
 	  	
 }
 
@@ -819,7 +974,160 @@ void lombscarglecpu(bool mode, DTYPE * x, DTYPE * y, const unsigned int sizeData
 }
 
 
-void importObjXYData(char * fnamedata, unsigned int * sizeData, unsigned int ** objectId, DTYPE ** timeX, DTYPE ** magY)
+//Pre-center the data with error:		
+// w = dy ** -2
+//    y = y - np.dot(w, y) / np.sum(w)
+void updateYerrorfactor(DTYPE * y, DTYPE *dy, const unsigned int sizeData)
+{
+
+		//Pre-center the data with error:
+		//w = dy ** -2
+		//sum w
+		DTYPE * w =(DTYPE *)malloc(sizeof(DTYPE)*sizeData);
+		DTYPE sumw=0;
+		#pragma omp parallel for num_threads(NTHREADSCPU) reduction(+:sumw)
+		for (int i=0; i<sizeData; i++)
+		{
+			w[i]=1.0/sqrt(dy[i]);
+			sumw+=w[i];
+		}
+		//compute dot product w,y
+		DTYPE dotwy=0;
+		#pragma omp parallel for num_threads(NTHREADSCPU) reduction(+:dotwy)
+		for (int i=0; i<sizeData; i++)
+		{
+			dotwy+=w[i]*y[i];
+		}
+
+		//update y to account for dot product and sum w
+		//y = y - dot(w, y) / np.sum(w)	
+		#pragma omp parallel for num_threads(NTHREADSCPU)
+		for (int i=0; i<sizeData; i++)
+		{
+			y[i]=y[i]-dotwy/sumw;
+		}
+
+		free(w);
+}
+
+//lombsscarge on the CPU for AstroPy with error
+//Mode==0 means run sequentially (batch mode)
+//Mode==1 means parallelize over the frequency loop (multiobject)
+void lombscarglecpuError(bool mode, DTYPE * x, DTYPE * y, DTYPE *dy, const unsigned int sizeData, const unsigned int numFreqs, const DTYPE minFreq, const DTYPE maxFreq, const DTYPE freqStep, DTYPE * pgram)
+{
+		// printf("\nExecuting astropy version");
+
+
+		updateYerrorfactor(y, dy, sizeData);
+
+
+	    if (mode==0)
+	    {	
+			for (int i=0; i<numFreqs; i++)
+			{
+				DTYPE freqToTest=minFreq+(freqStep*i);
+				lombscarglecpuinnerloopAstroPy(i, x, y, dy, pgram, &freqToTest, sizeData);
+		    }
+		}
+		else if(mode==1)
+		{
+			
+			#pragma omp parallel for num_threads(NTHREADSCPU) schedule(static)
+			for (int i=0; i<numFreqs; i++)
+			{
+				DTYPE freqToTest=minFreq+(freqStep*i);
+				lombscarglecpuinnerloopAstroPy(i, x, y, dy, pgram, &freqToTest, sizeData);
+		    }
+		}
+
+}
+
+
+//AstroPy has error propogration and fits to the mean
+//Ported from here:
+//https://github.com/astropy/astropy/blob/master/astropy/timeseries/periodograms/lombscargle/implementations/cython_impl.pyx
+//Uses the generalized periodogram in the cython code
+void lombscarglecpuinnerloopAstroPy(int iteration, DTYPE * x, DTYPE * y, DTYPE * dy, DTYPE * pgram, 
+	DTYPE * freqToTest, const unsigned int sizeData)
+{
+
+	DTYPE w, omega_t, sin_omega_t, cos_omega_t, S, C, S2, C2, tau, Y, wsum, YY, Stau, Ctau, YCtau, YStau, CCtau, SStau; 
+
+	wsum = 0.0;
+	S = 0.0;
+	C = 0.0;
+	S2 = 0.0;
+	C2 = 0.0;
+
+	//first pass: determine tau
+	for (int j=0; j<sizeData; j++)
+	{
+    w = 1.0 / dy[j];
+    w *= w;
+    wsum += w;
+    omega_t = (*freqToTest) * x[j];
+    sin_omega_t = sin(omega_t);
+    cos_omega_t = cos(omega_t);
+    S += w * sin_omega_t;
+    C += w * cos_omega_t;
+    S2 += 2.0 * w * sin_omega_t * cos_omega_t;
+    C2 += w - 2.0 * w * sin_omega_t * sin_omega_t;
+	}	    
+
+		S2 /= wsum;
+		C2 /= wsum;
+		S /= wsum;
+		C /= wsum;
+		S2 -= (2.0 * S * C);
+		C2 -= (C * C - S * S);
+		tau = 0.5 * atan2(S2, C2) / (*freqToTest);
+		Y = 0.0;
+		YY = 0.0;
+		Stau = 0.0;
+		Ctau = 0.0;
+		YCtau = 0.0;
+		YStau = 0.0;
+		CCtau = 0.0;
+		SStau = 0.0;
+		// second pass: compute the power
+		for (int j=0; j<sizeData; j++)
+		{
+		    w = 1.0 / dy[j];
+		    w *= w;
+		    omega_t = (*freqToTest) * (x[j] - tau);
+		    sin_omega_t = sin(omega_t);
+		    cos_omega_t = cos(omega_t);
+		    Y += w * y[j];
+		    YY += w * y[j] * y[j];
+		    Ctau += w * cos_omega_t;
+		    Stau += w * sin_omega_t;
+		    YCtau += w * y[j] * cos_omega_t;
+		    YStau += w * y[j] * sin_omega_t;
+		    CCtau += w * cos_omega_t * cos_omega_t;
+		    SStau += w * sin_omega_t * sin_omega_t;
+		}
+		Y /= wsum;
+		YY /= wsum;
+		Ctau /= wsum;
+		Stau /= wsum;
+		YCtau /= wsum;
+		YStau /= wsum;
+		CCtau /= wsum;
+		SStau /= wsum;
+		YCtau -= Y * Ctau;
+		YStau -= Y * Stau;
+		CCtau -= Ctau * Ctau;
+		SStau -= Stau * Stau;
+		YY -= Y * Y;
+		
+
+
+    pgram[iteration] = (YCtau * YCtau / CCtau + YStau * YStau / SStau) / YY;
+}
+
+
+
+void importObjXYData(char * fnamedata, unsigned int * sizeData, unsigned int ** objectId, DTYPE ** timeX, DTYPE ** magY, DTYPE ** magDY)
 {
 
 	//import objectId, timeX, magY
@@ -845,21 +1153,41 @@ void importObjXYData(char * fnamedata, unsigned int * sizeData, unsigned int ** 
 
 
 
-  	;
+  	
+  	#if ERROR==0
   	*sizeData=(unsigned int)tmpAllData.size()/3;
+  	#endif
+
+  	#if ERROR==1
+  	*sizeData=(unsigned int)tmpAllData.size()/4;
+  	#endif
   	printf("\nData import: Total rows: %u",*sizeData);
   	
   	*objectId=(unsigned int *)malloc(sizeof(DTYPE)*(*sizeData));
   	*timeX=   (DTYPE *)malloc(sizeof(DTYPE)*(*sizeData));
   	*magY=    (DTYPE *)malloc(sizeof(DTYPE)*(*sizeData));
 
+  	#if ERROR==1
+  	*magDY=    (DTYPE *)malloc(sizeof(DTYPE)*(*sizeData));
+  	#endif
 
 
+  	#if ERROR==0
   	for (int i=0; i<*sizeData; i++){
   		(*objectId)[i]=tmpAllData[(i*3)+0];
   		(*timeX)[i]   =tmpAllData[(i*3)+1];
   		(*magY)[i]    =tmpAllData[(i*3)+2];
   	}
+  	#endif
+
+  	#if ERROR==1
+  	for (int i=0; i<*sizeData; i++){
+  		(*objectId)[i]=tmpAllData[(i*4)+0];
+  		(*timeX)[i]   =tmpAllData[(i*4)+1];
+  		(*magY)[i]    =tmpAllData[(i*4)+2];
+  		(*magDY)[i]    =tmpAllData[(i*4)+3];
+  	}
+  	#endif
 
 }
 

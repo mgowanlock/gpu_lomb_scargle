@@ -5,6 +5,9 @@
 #define RETURNPGRAM 1 //0-only computes the power on the GPU and doesn't return the pgram for each object
 					  //1- returns the pgram for each object
 
+#define ERROR 1 //0- standard L-S
+				//1- Based on AstroPy with error propogation and fitted mean 
+				//The astropy port uses the default configuration (only global memory, returns the pgram)
 #define PINNED 1 //0- when returning the pgram (RETURNPGRAM==1) copy using standard pageable memory
 				 //1- when returning the pgram (RETURNPGRAM==1) copy using pinned memory with SIZEPINNEDBUFFERMIB and NSTREAMS
 
@@ -16,3 +19,11 @@
 			//1- use shared memory for this
 
 #define PRINTPERIODS 0 //print found periods to stdout							
+
+//Implementation with ERROR=0 (standard L-S)
+//Can use global or shared memory, option to return the pgram
+
+//Implementation with ERROR=1 (AstroPy)
+//Has floating mean and error propogation
+//Uses global memory kernel and returns the pgram
+
