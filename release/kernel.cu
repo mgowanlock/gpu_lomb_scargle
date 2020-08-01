@@ -202,3 +202,223 @@ __global__ void lombscargleBatch(DTYPE * x, DTYPE * y, struct lookupObj * object
 
 
 
+
+
+
+//The kernel with error only uses global memory and returns the pgram
+//generalized L-S from AstroPy
+__global__ void lombscargleBatchError(DTYPE * x, DTYPE * y, DTYPE * dy, struct lookupObj * objectLookup, DTYPE * pgram,  DTYPE * foundPeriod, 
+	const double minFreq, const double maxFreq, const unsigned int numFreqs)
+{
+	
+	
+	
+	//Values shared by all threads in the block
+	__shared__ DTYPE freqStep; //increment the frequency by this much
+	__shared__ unsigned int minDataIdx;
+	__shared__ unsigned int maxDataIdx;
+	__shared__ unsigned int periodWriteOffset;
+
+	//Set the values in shared memory using thread 0
+	if (threadIdx.x==0)
+	{
+	freqStep=(maxFreq-minFreq)/(numFreqs*1.0);	
+	minDataIdx=objectLookup[blockIdx.x].idxMin;	
+	maxDataIdx=objectLookup[blockIdx.x].idxMax;
+	periodWriteOffset=blockIdx.x*numFreqs;
+	}
+	
+	__syncthreads();
+
+
+	DTYPE w, sin_omega_t, cos_omega_t, S, C, S2, C2, tau, Y, wsum, YY, Stau, Ctau, YCtau, YStau, CCtau, SStau; 
+
+
+
+	for (int i=0; i<numFreqs && ((i+threadIdx.x)<numFreqs); i+=blockDim.x)
+	{
+
+
+	int idx=i+threadIdx.x;
+	DTYPE freqToTest=minFreq+(freqStep*idx);
+
+	wsum = 0.0;
+	S = 0.0;
+	C = 0.0;
+	S2 = 0.0;
+	C2 = 0.0;
+
+	//first pass: determine tau
+	#pragma unroll
+	for (int j=minDataIdx; j<=maxDataIdx; j++)
+	{
+    w = 1.0 / dy[j];
+    w *= w;
+    wsum += w;
+    sincos(freqToTest * x[j], &sin_omega_t, &cos_omega_t);
+    S += w * sin_omega_t;
+    C += w * cos_omega_t;
+    S2 += 2.0 * w * sin_omega_t * cos_omega_t;
+    C2 += w - 2.0 * w * sin_omega_t * sin_omega_t;
+	}	    
+
+		S2 /= wsum;
+		C2 /= wsum;
+		S /= wsum;
+		C /= wsum;
+		S2 -= (2.0 * S * C);
+		C2 -= (C * C - S * S);
+		#if DTYPE==float
+        tau = 0.5 * atan2f(S2, C2) / freqToTest;
+        #elif DTYPE==double
+        tau = 0.5 * atan2(S2, C2) / freqToTest;
+        #endif
+		
+		Y = 0.0;
+		YY = 0.0;
+		Stau = 0.0;
+		Ctau = 0.0;
+		YCtau = 0.0;
+		YStau = 0.0;
+		CCtau = 0.0;
+		SStau = 0.0;
+		// second pass: compute the power
+		#pragma unroll
+		for (int j=minDataIdx; j<=maxDataIdx; j++)
+		{
+		    w = 1.0 / dy[j];
+		    w *= w;
+		    sincos(freqToTest * (x[j] - tau), &sin_omega_t, &cos_omega_t);
+		    Y += w * y[j];
+		    YY += w * y[j] * y[j];
+		    Ctau += w * cos_omega_t;
+		    Stau += w * sin_omega_t;
+		    YCtau += w * y[j] * cos_omega_t;
+		    YStau += w * y[j] * sin_omega_t;
+		    CCtau += w * cos_omega_t * cos_omega_t;
+		    SStau += w * sin_omega_t * sin_omega_t;
+		}
+		Y /= wsum;
+		YY /= wsum;
+		Ctau /= wsum;
+		Stau /= wsum;
+		YCtau /= wsum;
+		YStau /= wsum;
+		CCtau /= wsum;
+		SStau /= wsum;
+		YCtau -= Y * Ctau;
+		YStau -= Y * Stau;
+		CCtau -= Ctau * Ctau;
+		SStau -= Stau * Stau;
+		YY -= Y * Y;
+		
+
+		pgram[idx+periodWriteOffset] = (YCtau * YCtau / CCtau + YStau * YStau / SStau) / YY;
+	}
+    
+}
+
+
+
+//Each thread stores the powers of the pgram and global memory and then have another kernel find the maximum index corresponding to the correct power
+__global__ void lombscargleOneObjectError(DTYPE * x, DTYPE * y, DTYPE * dy, DTYPE * pgram, const unsigned int sizeData, const double minFreq, const double maxFreq, const unsigned int numFreqs)
+{
+
+	unsigned int tid=(blockIdx.x*blockDim.x)+threadIdx.x; 	
+	
+	//Values shared by all threads in the block
+	__shared__ DTYPE freqStep; //increment the frequency by this much
+
+	//Set the values in shared memory using thread 0
+	if (threadIdx.x==0)
+	{
+	freqStep=(maxFreq-minFreq)/(numFreqs*1.0);	
+	}
+	
+	__syncthreads();
+
+
+		DTYPE w, sin_omega_t, cos_omega_t, S, C, S2, C2, tau, Y, wsum, YY, Stau, Ctau, YCtau, YStau, CCtau, SStau; 
+		
+		wsum = 0.0;
+		S = 0.0;
+		C = 0.0;
+		S2 = 0.0;
+		C2 = 0.0;
+
+		if (tid<numFreqs)
+		{
+
+		DTYPE freqToTest=minFreq+(freqStep*tid);	
+    
+       	//first pass: determine tau
+       	#pragma unroll
+		for (int j=0; j<sizeData; j++)
+		{
+	    w = 1.0 / dy[j];
+	    w *= w;
+	    wsum += w;
+	    sincos(freqToTest * x[j], &sin_omega_t, &cos_omega_t);
+	    S += w * sin_omega_t;
+	    C += w * cos_omega_t;
+	    S2 += 2.0 * w * sin_omega_t * cos_omega_t;
+	    C2 += w - 2.0 * w * sin_omega_t * sin_omega_t;
+		}
+
+		S2 /= wsum;
+		C2 /= wsum;
+		S /= wsum;
+		C /= wsum;
+		S2 -= (2.0 * S * C);
+		C2 -= (C * C - S * S);
+		#if DTYPE==float
+		tau = 0.5 * atan2f(S2, C2) / freqToTest;
+		#elif DTYPE==double
+		tau = 0.5 * atan2(S2, C2) / freqToTest;
+		#endif
+		Y = 0.0;
+		YY = 0.0;
+		Stau = 0.0;
+		Ctau = 0.0;
+		YCtau = 0.0;
+		YStau = 0.0;
+		CCtau = 0.0;
+		SStau = 0.0;
+		// second pass: compute the power
+		#pragma unroll
+		for (int j=0; j<sizeData; j++)
+		{
+		    w = 1.0 / dy[j];
+		    w *= w;
+		    sincos(freqToTest * (x[j] - tau), &sin_omega_t, &cos_omega_t);
+		    Y += w * y[j];
+		    YY += w * y[j] * y[j];
+		    Ctau += w * cos_omega_t;
+		    Stau += w * sin_omega_t;
+		    YCtau += w * y[j] * cos_omega_t;
+		    YStau += w * y[j] * sin_omega_t;
+		    CCtau += w * cos_omega_t * cos_omega_t;
+		    SStau += w * sin_omega_t * sin_omega_t;
+		}
+		Y /= wsum;
+		YY /= wsum;
+		Ctau /= wsum;
+		Stau /= wsum;
+		YCtau /= wsum;
+		YStau /= wsum;
+		CCtau /= wsum;
+		SStau /= wsum;
+		YCtau -= Y * Ctau;
+		YStau -= Y * Stau;
+		CCtau -= Ctau * Ctau;
+		SStau -= Stau * Stau;
+		YY -= Y * Y;
+		
+
+
+    	pgram[tid] = (YCtau * YCtau / CCtau + YStau * YStau / SStau) / YY;	    
+
+
+
+	    }	
+}

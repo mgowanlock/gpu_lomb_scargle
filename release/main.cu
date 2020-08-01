@@ -48,12 +48,13 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
 
 
 //function prototypes
-void importObjXYData(char * fnamedata, unsigned int * sizeData, unsigned int ** objectId, DTYPE ** timeX, DTYPE ** magY);
+void importObjXYData(char * fnamedata, unsigned int * sizeData, unsigned int ** objectId, DTYPE ** timeX, DTYPE ** magY, DTYPE ** magDY);
 int detectMode(unsigned int * objectId, unsigned int * sizeData);
-void batchGPULS(unsigned int * objectId, DTYPE * timeX,  DTYPE * magY, unsigned int * sizeData, const DTYPE minFreq, const DTYPE maxFreq, const unsigned int numFreqs, DTYPE * sumPeriods, DTYPE ** pgram, DTYPE * foundPeriod);
-void GPULSOneObject(DTYPE * timeX,  DTYPE * magY, unsigned int * sizeData, const DTYPE minFreq, const DTYPE maxFreq, const unsigned int numFreqs, DTYPE * periodFound, DTYPE ** pgram);
+void batchGPULS(unsigned int * objectId, DTYPE * timeX,  DTYPE * magY, DTYPE * magDY, unsigned int * sizeData, const DTYPE minFreq, const DTYPE maxFreq, const unsigned int numFreqs, DTYPE * sumPeriods, DTYPE ** pgram, DTYPE * foundPeriod);
+void GPULSOneObject(DTYPE * timeX,  DTYPE * magY, DTYPE * magDY, unsigned int * sizeData, const DTYPE minFreq, const DTYPE maxFreq, const unsigned int numFreqs, DTYPE * periodFound, DTYPE ** pgram);
 void computeObjectRanges(unsigned int * objectId, unsigned int * sizeData, struct lookupObj ** objectLookup, unsigned int * numUniqueObjects);
 void pinnedMemoryCopyDtoH(DTYPE * pinned_buffer, unsigned int sizeBufferElems, DTYPE * dev_data, DTYPE * pageable, unsigned int sizeTotalData);
+void updateYerrorfactor(DTYPE * y, DTYPE *dy, const unsigned int sizeData);
 void warmUpGPU();
 
 
@@ -90,12 +91,17 @@ int main(int argc, char *argv[])
 	printf("\nMinimum Frequency: %f",minFreq);
 	printf("\nMaximum Frequency: %f",maxFreq);
 	printf("\nNumber of frequencies to test: %u", freqToTest);
+
+	#if ERROR==1
+	printf("\nExecuting L-S variant from AstroPy that propogates error and floats the mean");
+	#endif
 	
 	unsigned int * objectId=NULL; 
 	DTYPE * timeX=NULL; 
 	DTYPE * magY=NULL;
+	DTYPE * magDY=NULL;
 	unsigned int sizeData;
-	importObjXYData(inputFname, &sizeData, &objectId, &timeX, &magY);	
+	importObjXYData(inputFname, &sizeData, &objectId, &timeX, &magY, &magDY);	
 
 	//determine whether file has a single object or multiple objects
 	int MODE=detectMode(objectId, &sizeData);
@@ -115,7 +121,7 @@ int main(int argc, char *argv[])
 		
 		double tstart=omp_get_wtime();
 		
-		batchGPULS(objectId, timeX, magY, &sizeData, minFreq, maxFreq, freqToTest, &sumPeriods, &pgram, foundPeriod);
+		batchGPULS(objectId, timeX, magY, magDY, &sizeData, minFreq, maxFreq, freqToTest, &sumPeriods, &pgram, foundPeriod);
 		
 		double tend=omp_get_wtime();
 		double totalTime=tend-tstart;
@@ -129,21 +135,25 @@ int main(int argc, char *argv[])
 		printf("\nMode: %d Detected [Processing a single object]", MODE);
 		DTYPE periodFound=0;	
 		double tstart=omp_get_wtime();
+
+		#if ERROR==1
+		updateYerrorfactor(magY, magDY, sizeData);
+		#endif	
 		
-		GPULSOneObject(timeX, magY, &sizeData, minFreq, maxFreq, freqToTest, &periodFound, &pgram);
+		GPULSOneObject(timeX, magY, magDY, &sizeData, minFreq, maxFreq, freqToTest, &periodFound, &pgram);
 	
 		double tend=omp_get_wtime();
 		double totalTime=tend-tstart;
-		printf("\nTotal time to compute batch: %f", totalTime);
+		printf("\nTotal time to compute period: %f", totalTime);
 		printf("\n[Validation] Period: %f", periodFound);
 	}
-	
 
 	//free memory
 	free(foundPeriod);
 	free(objectId);
 	free(timeX);
 	free(magY);
+	free(magDY);
 	free(pgram);
 
 	printf("\n");
@@ -269,7 +279,7 @@ void pinnedMemoryCopyDtoH(DTYPE * pinned_buffer, unsigned int sizeBufferElems, D
 
 
 //Compute pgram for one object, not a batch of objects
-void GPULSOneObject(DTYPE * timeX,  DTYPE * magY, unsigned int * sizeData, const DTYPE minFreq, const DTYPE maxFreq, const unsigned int numFreqs, DTYPE * periodFound, DTYPE ** pgram)
+void GPULSOneObject(DTYPE * timeX,  DTYPE * magY, DTYPE * magDY, unsigned int * sizeData, const DTYPE minFreq, const DTYPE maxFreq, const unsigned int numFreqs, DTYPE * periodFound, DTYPE ** pgram)
 {
 	
 
@@ -283,6 +293,11 @@ void GPULSOneObject(DTYPE * timeX,  DTYPE * magY, unsigned int * sizeData, const
 	gpuErrchk(cudaMalloc((void**)&dev_timeX, sizeof(DTYPE)*(*sizeData)));
 	gpuErrchk(cudaMalloc((void**)&dev_magY, sizeof(DTYPE)*(*sizeData)));
 	
+		//If astropy implementation with error
+	#if ERROR==1
+	DTYPE * dev_magDY;
+	gpuErrchk(cudaMalloc((void**)&dev_magDY, sizeof(DTYPE)*(*sizeData)));	
+	#endif
 	
 	// Result periodogram
 	//need to allocate it on the GPUeven if we do not return it to the host so that we can find the maximum power
@@ -297,13 +312,20 @@ void GPULSOneObject(DTYPE * timeX,  DTYPE * magY, unsigned int * sizeData, const
 	gpuErrchk(cudaMemcpy( dev_magY, magY, sizeof(DTYPE)*(*sizeData), cudaMemcpyHostToDevice));
 	gpuErrchk(cudaMemcpy( dev_sizeData, sizeData, sizeof(unsigned int), cudaMemcpyHostToDevice));
 
+	#if ERROR==1
+	gpuErrchk(cudaMemcpy( dev_magDY, magDY, sizeof(DTYPE)*(*sizeData), cudaMemcpyHostToDevice));
+	#endif
+
 	const unsigned int szData=*sizeData;
 	const unsigned int numBlocks=ceil(numFreqs*1.0/BLOCKSIZE*1.0);
 	
 	double tstart=omp_get_wtime();
   	//Do lomb-scargle
-  	
+  	#if ERROR==0
   	lombscargleOneObject<<< numBlocks, BLOCKSIZE>>>(dev_timeX, dev_magY, dev_pgram, szData, minFreq, maxFreq, numFreqs);
+  	#elif ERROR==1
+  	lombscargleOneObjectError<<< numBlocks, BLOCKSIZE>>>(dev_timeX, dev_magY, dev_magDY, dev_pgram, szData, minFreq, maxFreq, numFreqs);
+  	#endif
   	
 
   	//Find the index of the maximum power
@@ -338,6 +360,11 @@ void GPULSOneObject(DTYPE * timeX,  DTYPE * magY, unsigned int * sizeData, const
 	cudaFree(dev_sizeData);
 	cudaFree(dev_pgram);
 	cudaFree(dev_foundPeriod);
+
+	#if ERROR==1
+	cudaFree(dev_magDY); 
+	#endif
+
 	cudaFreeHost(pinned_buffer);
 	
 }
@@ -346,7 +373,7 @@ void GPULSOneObject(DTYPE * timeX,  DTYPE * magY, unsigned int * sizeData, const
 
 
 //Send the minimum and maximum frequency and number of frequencies to test to the GPU (not a list of frequencies)
-void batchGPULS(unsigned int * objectId, DTYPE * timeX,  DTYPE * magY, unsigned int * sizeData, const DTYPE minFreq, const DTYPE maxFreq, const unsigned int numFreqs, DTYPE * sumPeriods, DTYPE ** pgram, DTYPE * foundPeriod)
+void batchGPULS(unsigned int * objectId, DTYPE * timeX,  DTYPE * magY, DTYPE * magDY, unsigned int * sizeData, const DTYPE minFreq, const DTYPE maxFreq, const unsigned int numFreqs, DTYPE * sumPeriods, DTYPE ** pgram, DTYPE * foundPeriod)
 {
 	
 
@@ -371,6 +398,21 @@ void batchGPULS(unsigned int * objectId, DTYPE * timeX,  DTYPE * magY, unsigned 
 	//allocate memory on the GPU
 	gpuErrchk(cudaMalloc((void**)&dev_timeX, sizeof(DTYPE)*(*sizeData)));
 	gpuErrchk(cudaMalloc((void**)&dev_magY, sizeof(DTYPE)*(*sizeData)));
+
+	//If astropy implementation with error
+	#if ERROR==1
+	DTYPE * dev_magDY;
+	gpuErrchk(cudaMalloc((void**)&dev_magDY, sizeof(DTYPE)*(*sizeData)));
+
+	//Need to incorporate error into magnitudes
+	for (int i=0; i<numUniqueObjects; i++)
+	{
+		unsigned int idxMin=objectLookup[i].idxMin;
+		unsigned int idxMax=objectLookup[i].idxMax;
+		unsigned int sizeDataForObject=idxMax-idxMin+1;
+		updateYerrorfactor(&magY[idxMin], &magDY[idxMin], sizeDataForObject);
+	}	
+	#endif
 	
 	//Allocate pgram
 	// Result periodogram must be number of unique objects * the size of the frequency array
@@ -392,12 +434,18 @@ void batchGPULS(unsigned int * objectId, DTYPE * timeX,  DTYPE * magY, unsigned 
 	gpuErrchk(cudaMemcpy( dev_sizeData, sizeData, sizeof(unsigned int), cudaMemcpyHostToDevice));
 	gpuErrchk(cudaMemcpy( dev_objectLookup, objectLookup, sizeof(lookupObj)*(numUniqueObjects), cudaMemcpyHostToDevice));
 
+	#if ERROR==1
+	gpuErrchk(cudaMemcpy( dev_magDY, magDY, sizeof(DTYPE)*(*sizeData), cudaMemcpyHostToDevice));
+	#endif
+
 	const int numBlocks=numUniqueObjects;
 	double tstart=omp_get_wtime();
   	//Do lomb-scargle
-  	
+  	#if ERROR==0
   	lombscargleBatch<<< numBlocks, BLOCKSIZE>>>(dev_timeX, dev_magY, dev_objectLookup, dev_pgram, dev_foundPeriod, minFreq, maxFreq, numFreqs);
-  	
+  	#elif ERROR==1
+  	lombscargleBatchError<<< numBlocks, BLOCKSIZE>>>(dev_timeX, dev_magY, dev_magDY, dev_objectLookup, dev_pgram, dev_foundPeriod, minFreq, maxFreq, numFreqs);
+  	#endif
 
   	cudaDeviceSynchronize();
 
@@ -467,6 +515,10 @@ void batchGPULS(unsigned int * objectId, DTYPE * timeX,  DTYPE * magY, unsigned 
   	free(foundPeriod);
   	free(objectLookup);
 
+  	#if ERROR==1
+	cudaFree(dev_magDY); 
+	#endif
+
   	//free memory-- CUDA
   	cudaFree(dev_timeX);
   	cudaFree(dev_timeX);
@@ -481,8 +533,7 @@ void batchGPULS(unsigned int * objectId, DTYPE * timeX,  DTYPE * magY, unsigned 
 }
 
 
-
-void importObjXYData(char * fnamedata, unsigned int * sizeData, unsigned int ** objectId, DTYPE ** timeX, DTYPE ** magY)
+void importObjXYData(char * fnamedata, unsigned int * sizeData, unsigned int ** objectId, DTYPE ** timeX, DTYPE ** magY, DTYPE ** magDY)
 {
 
 	//import objectId, timeX, magY
@@ -506,25 +557,84 @@ void importObjXYData(char * fnamedata, unsigned int * sizeData, unsigned int ** 
   	}
 
 
+
+
+  	
+  	#if ERROR==0
   	*sizeData=(unsigned int)tmpAllData.size()/3;
+  	#endif
+
+  	#if ERROR==1
+  	*sizeData=(unsigned int)tmpAllData.size()/4;
+  	#endif
   	printf("\nData import: Total rows: %u",*sizeData);
   	
   	*objectId=(unsigned int *)malloc(sizeof(DTYPE)*(*sizeData));
   	*timeX=   (DTYPE *)malloc(sizeof(DTYPE)*(*sizeData));
   	*magY=    (DTYPE *)malloc(sizeof(DTYPE)*(*sizeData));
 
+  	#if ERROR==1
+  	*magDY=    (DTYPE *)malloc(sizeof(DTYPE)*(*sizeData));
+  	#endif
 
 
+  	#if ERROR==0
   	for (int i=0; i<*sizeData; i++){
   		(*objectId)[i]=tmpAllData[(i*3)+0];
   		(*timeX)[i]   =tmpAllData[(i*3)+1];
   		(*magY)[i]    =tmpAllData[(i*3)+2];
   	}
+  	#endif
+
+  	#if ERROR==1
+  	for (int i=0; i<*sizeData; i++){
+  		(*objectId)[i]=tmpAllData[(i*4)+0];
+  		(*timeX)[i]   =tmpAllData[(i*4)+1];
+  		(*magY)[i]    =tmpAllData[(i*4)+2];
+  		(*magDY)[i]    =tmpAllData[(i*4)+3];
+  	}
+  	#endif
 
 }
 
+//Pre-center the data with error:		
+// w = dy ** -2
+//    y = y - np.dot(w, y) / np.sum(w)
+void updateYerrorfactor(DTYPE * y, DTYPE *dy, const unsigned int sizeData)
+{
+
+		//Pre-center the data with error:
+		//w = dy ** -2
+		//sum w
+		DTYPE * w =(DTYPE *)malloc(sizeof(DTYPE)*sizeData);
+		DTYPE sumw=0;
+		#pragma omp parallel for num_threads(4) reduction(+:sumw)
+		for (int i=0; i<sizeData; i++)
+		{
+			w[i]=1.0/sqrt(dy[i]);
+			sumw+=w[i];
+		}
+		//compute dot product w,y
+		DTYPE dotwy=0;
+		#pragma omp parallel for num_threads(4) reduction(+:dotwy)
+		for (int i=0; i<sizeData; i++)
+		{
+			dotwy+=w[i]*y[i];
+		}
+
+		//update y to account for dot product and sum w
+		//y = y - dot(w, y) / np.sum(w)	
+		#pragma omp parallel for num_threads(4)
+		for (int i=0; i<sizeData; i++)
+		{
+			y[i]=y[i]-dotwy/sumw;
+		}
+
+		free(w);
+}
 
 void warmUpGPU(){
 printf("\nLoad CUDA runtime (initialization overhead)\n");
 cudaDeviceSynchronize();
 }
+

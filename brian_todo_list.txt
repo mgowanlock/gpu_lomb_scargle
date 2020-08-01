@@ -55,10 +55,11 @@ Regarding code, everything you need to modify will be in the release implementat
 remove params.h file
 -Pass in DTYPE on the comamnd line
 -Pass in print periods on the command line
+-Pass in ERROR on the command line
 -Remember to update makefile to remove the params.h dependency
 
-Add OpenACC implementation to the release implementation
--Since OpenACC looks more like CPU code you should reference the code in the paper directory to see the CPU code in the paper.
+Add OpenACC/OpenMP implementation to the release implementation
+-Since OpenACC/OpenMP looks more like CPU code you should reference the code in the paper directory to see the CPU code in the paper.
 
 -Add the MIT License to the top of all source files (paper and release implementations) and add our names to the copyright
 -Update the README.md file on GitHub to reflect the new command line arguments and the OpenACC mode.
