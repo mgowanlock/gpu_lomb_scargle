@@ -17,13 +17,20 @@ OpenACC allows the code to be executed on CPUs and GPUs, including offloading to
   * A batch of synthetic objects using a log-normal distribution from the paper (normalized_alltargs.200724_1_log_normal_obs.dat)
   * A single synthetic object with 3,555 measurements from the paper (8205_normalized.txt)
 
-## Modes:
+## Modes: Single Object and Batched 
 As described in the paper, the GPU algorithm allows for both a single object to be processed (e.g., a user wants to process a large time series or a large number of frequencies need to be searched). And it also allows for a batch of objects to be processed (e.g., deriving periods for an entire astronomical catalog, or near real-time period finding for ZTF or LSST during nighttime observing). 
+
+## Modes: Standard L-S and Generalized Periodogram (Photometric Error/Floating Mean)
+We include two versions. The Standard L-S algorithm that is found in SciPy which does not include photometric errors on the magnitudes is described in great detail throughout the paper. We also include the standard configuration from AstroPy which floats the mean and includes errors photometric errors. 
+
+The dataset file for the standard L-S algorithm should be in the format: object id, time, mag. 
+
+The dataset file for the generalized algorithm should be in the format: object id, time, mag, dmag. 
 
 ## Makefile
 A makefile has been included for each implementation. Make sure to update the compute capability flag to ensure you compile for the correct architecture. To find out which compute capability your GPU has, please refer to the compute capability table on Wikipedia: https://en.wikipedia.org/wiki/CUDA.
 
-## Running the program using the paper implementation:
+## Running the program using the paper implementation (Standard L-S):
 After compiling the computer program, you must enter the following command line arguments:
 \<dataset file name\> \<minimum frequency\> \<maximum frequency\> \<number of frequencies to search\> \<mode\>
   
@@ -34,7 +41,7 @@ The paper implementation has the following modes:
 * 5- CPU to process a single object
 
 Example for the batch mode:
-$ ./main ../data/normalized_alltargs.200724_1_log_normal_obs.dat 1.005 150.796 1000000
+$ ./main ../data/normalized_alltargs.200724_1_log_normal_obs.dat 1.005 150.796 1000000 1
 
 Load CUDA runtime (initialization overhead)
 
@@ -68,6 +75,47 @@ Time to compute kernel: 0.005606\
 Maximum power at found period: 1.080289\
 Total time to compute batch: 0.028207\
 [Validation] Period: 0.096536
+
+## Running the program using the paper implementation (AstroPy Default with Error and Floating Mean):
+The default implementation in AstroPy uses the generalized periodogram which floats the mean and includes photmetric errors. To run this version of the code use the same command line input parameters but use a dataset file that includes photometric errors. Make sure to compile using the "ERROR=1" flag.
+
+Example for the batch mode:
+$ ./main ../data/normalized_alltargs.200724_1_log_normal_obs_with_error.dat 1.00531 150.796 1000000 1
+
+Load CUDA runtime (initialization overhead)
+
+Dataset file: ../data/normalized_alltargs.200724_1_log_normal_obs_with_error.dat\
+Minimum Frequency: 1.005310\
+Maximum Frequency: 150.796000\
+Number of frequencies to test: 1000000\
+Mode: 1\
+Executing L-S variant from AstroPy that propogates error and floats the mean\
+Data import: Total rows: 165221\
+Unique objects in file: 999\
+Time to compute kernel: 8.583307\
+Compute period from pgram on CPU:\
+Time to compute the periods on the CPU using the pgram: 0.195461\
+Total time to compute batch: 9.872271\
+[Validation] Sum of all periods: 718.249253
+
+Example for the single object mode:
+$ ./main ../data/8205_normalized_with_error.txt 3.14159 150.79645 1000000 2
+
+Load CUDA runtime (initialization overhead)
+
+Dataset file: ../data/8205_normalized_with_error.txt\
+Minimum Frequency: 3.141590\
+Maximum Frequency: 150.796450\
+Number of frequencies to test: 1000000\
+Mode: 2\
+Executing L-S variant from AstroPy that propogates error and floats the mean\
+Data import: Total rows: 3555\
+Period: 0.564736\
+Time to compute kernel: 0.152766\
+Maximum power at found period: 0.712905\
+Total time to compute batch: 0.213529\
+[Validation] Period: 0.564736
+
 
 ## Running the program using the release implementation (CUDA GPU):
 XXX Brian
