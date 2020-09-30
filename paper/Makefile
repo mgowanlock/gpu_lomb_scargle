@@ -9,7 +9,7 @@ CUDAOBJECTS = main.o kernel.o
 CC = nvcc
 EXECUTABLE = main
 
-FLAGS =  -std=c++11 -O3 -Xcompiler -fopenmp -arch=compute_60 -code=sm_60 -lcuda -lineinfo 
+FLAGS =  -std=c++11 -O3 -Xcompiler -fopenmp -arch=compute_75 -code=sm_75 -lcuda -lineinfo 
 CFLAGS = -c -D_MWAITXINTRIN_H_INCLUDED -D_FORCE_INLINES
 
 
