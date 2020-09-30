@@ -9,8 +9,6 @@ Code authors: Mike Gowanlock and Brian Donnelly
 
 The data directory includes test data (all datasets used in the paper). The paper directory contains the source code used for the experimental evaluation in the paper. And the release code includes both CUDA and OpenACC functionality. The difference between the paper and release code is that many of the GPU performance parameters have been selected for the user so that a reasonable default configuration can be used without extensive knowledge of the details in the paper. However, if the user is interested in all of the bells and whistles included in the paper, then they should use the paper implementation.
 
-## OpenACC
-OpenACC allows the code to be executed on CPUs and GPUs, including offloading to both Nvidia and AMD GPUs. This implementation was included so that the algorithm can be used across different platforms; however, we do not claim that it is as efficient as the CUDA implementation.
 
 ## Data:
   * Ida 243 in the paper from the ZTF public survey (243_normalized_ztf_filter2.txt)
@@ -118,7 +116,62 @@ Total time to compute batch: 0.213529\
 
 
 ## Running the program using the release implementation (CUDA GPU):
-XXX Brian
 
-## Running the program using the release implementation (OpenACC):
-XXX Brian
+After compiling the computer program, you must enter the following command line arguments:
+\<dataset file name\> \<minimum frequency\> \<maximum frequency\> \<number of frequencies to search\> 
+\<DoubleMode(1or0)\> \<PrintMode(1or0)\> \<ErrorMode(1or0)\>
+  
+
+Example using floats and errors on batch of objects:
+
+ ./main ../data/normalized_alltargs.200724_1_log_normal_obs_with_error.dat 1.005 150.796 10000 0 0 1
+
+Load CUDA runtime (initialization overhead)
+
+Dataset file: ../data/normalized_alltargs.200724_1_log_normal_obs_with_error.dat
+Minimum Frequency: 1.005000
+Maximum Frequency: 150.796000
+Number of frequencies to test: 10000
+
+Running with data type of float for better performance at cost of accuracy.
+Set argument 5 to 1 to increase accuracy at cost of performance
+
+Printing is turned off. To print the period of every object to screen, set argument 6 to 1.
+
+Executing L-S variant from AstroPy that propogates error and floats the mean.
+This can be disabled by setting argument 7 to 0.
+
+Data import: Total rows: 165221
+Mode: 1 Detected [Processing a batch of objects]
+Unique objects in file: 999
+Time to compute kernel: 0.175216
+Compute period from pgram on CPU:
+Time to compute the periods on the CPU using the pgram: 0.008500
+Total time to compute batch: 0.469490
+[Validation] Sum of all periods: 722.733643
+
+
+Example using doubles with no error on a single object: 
+
+./main ../data/8205_normalized.txt 3.14159 150.79645 10000 1 0 0
+
+Load CUDA runtime (initialization overhead)
+
+Dataset file: ../data/8205_normalized.txt
+Minimum Frequency: 3.141590
+Maximum Frequency: 150.796450
+Number of frequencies to test: 10000
+
+Running with data type of double for better precision at cost of performance.
+Set argument 5 to 0 to increase performance at cost of accuracy
+
+Printing is turned off. To print the period of every object to screen, set argument 6 to 1.
+
+Executing L-S without errors, to turn on; set argument 7 to 1
+
+Data import: Total rows: 3555
+Period: 0.564541
+Time to compute kernel: 0.018303
+Total time to compute period: 0.030021
+[Validation] Period: 0.564541
+
