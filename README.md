@@ -8,7 +8,7 @@ If you use this software, please cite our paper below.
 
 M. Gowanlock, D. Kramer, D.E. Trilling, N.R. Butler, B. Donnelly (2021)\
 *Fast period searches using the Lomb–Scargle algorithm on Graphics Processing Units for large datasets and real-time applications*\
-Astronomy and Computing, 100472, Elsevier\
+Astronomy and Computing, Elsevier\
 https://doi.org/10.1016/j.ascom.2021.100472
 
 ## There are three directories:
