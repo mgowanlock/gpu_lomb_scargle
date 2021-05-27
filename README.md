@@ -1,6 +1,15 @@
-# Lomb-Scargle Algorithm on the GPU (accompanying paper under review).
+# Lomb-Scargle Algorithm on the GPU 
 
 Code authors: Mike Gowanlock and Brian Donnelly
+
+# Paper
+
+If you use this software, please cite our paper below.
+
+M. Gowanlock, D. Kramer, D.E. Trilling, N.R. Butler, B. Donnelly
+Fast period searches using the Lomb–Scargle algorithm on Graphics Processing Units for large datasets and real-time applications,
+Astronomy and Computing, 2021, 100472
+https://doi.org/10.1016/j.ascom.2021.100472
 
 ## There are three directories:
 * data
@@ -9,11 +18,14 @@ Code authors: Mike Gowanlock and Brian Donnelly
 
 The data directory includes test data (all datasets used in the paper). The paper directory contains the source code used for the experimental evaluation in the paper. And the release code includes both CUDA and OpenACC functionality. The difference between the paper and release code is that many of the GPU performance parameters have been selected for the user so that a reasonable default configuration can be used without extensive knowledge of the details in the paper. However, if the user is interested in all of the bells and whistles included in the paper, then they should use the paper implementation.
 
+Note: We have updated the paper verson of the code base to include multi-GPU functionality. This functionality was not described in the paper.
+
 
 ## Data:
   * Ida 243 in the paper from the ZTF public survey (243_normalized_ztf_filter2.txt)
-  * A batch of synthetic objects using a log-normal distribution from the paper (normalized_alltargs.200724_1_log_normal_obs.dat)
   * A single synthetic object with 3,555 measurements from the paper (8205_normalized.txt)
+  * A batch of synthetic objects using a log-normal distribution from the paper (normalized_alltargs.200724_1_log_normal_obs.dat)
+  * Period solutions for the synthetic objects above, given in the column "lcper" (simobj.200724_1.dat)
 
 ## Modes: Single Object and Batched 
 As described in the paper, the GPU algorithm allows for both a single object to be processed (e.g., a user wants to process a large time series or a large number of frequencies need to be searched). And it also allows for a batch of objects to be processed (e.g., deriving periods for an entire astronomical catalog, or near real-time period finding for ZTF or LSST during nighttime observing). 
