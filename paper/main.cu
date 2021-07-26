@@ -492,7 +492,7 @@ void GPULSOneObject(DTYPE * timeX,  DTYPE * magY, DTYPE * magDY, unsigned int * 
 	#endif
 
 	
-  	#if NORMALIZEPGRAM==1
+  	#if NORMALIZEPGRAM==1 && ERROR==0
   	normalizepgramsingleobject(*pgram, magY, *sizeData, numFreqs);
   	#endif
 
@@ -958,7 +958,7 @@ void batchGPULS(unsigned int * objectId, DTYPE * timeX,  DTYPE * magY, DTYPE * m
   	printf("\nCompute period from pgram on CPU:");
 
 
-  	#if NORMALIZEPGRAM==1
+  	#if NORMALIZEPGRAM==1 && ERROR==0
   	normalizepgram(pgram, objectLookup, magY, numUniqueObjects, numFreqs);
   	#endif
 
@@ -1193,7 +1193,7 @@ void lombscargleCPUOneObject(DTYPE * timeX,  DTYPE * magY, unsigned int * sizeDa
 
 	//1 refers to the mode of executing in parallel inside the LS algorithm
 	lombscarglecpu(1, timeX, magY, *sizeData, numFreqs, minFreq, maxFreq, freqStep, pgram);	
-	#if NORMALIZEPGRAM==1
+	#if NORMALIZEPGRAM==1 && ERROR==0
   	normalizepgramsingleobject(pgram, magY, *sizeData, numFreqs);
   	#endif
 	computePeriod(pgram, numFreqs, minFreq, freqStep, foundPeriod, foundPower);
@@ -1212,7 +1212,7 @@ void lombscargleCPUOneObjectError(DTYPE * timeX,  DTYPE * magY, DTYPE * magDY, u
 
 	//1 refers to the mode of executing in parallel inside the LS algorithm
 	lombscarglecpuError(1, timeX, magY, magDY, *sizeData, numFreqs, minFreq, maxFreq, freqStep, pgram);	
-	#if NORMALIZEPGRAM==1
+	#if NORMALIZEPGRAM==1 && ERROR==0
   	normalizepgramsingleobject(pgram, magY, *sizeData, numFreqs);
   	#endif
 	computePeriod(pgram, numFreqs, minFreq, freqStep, foundPeriod, foundPower);
@@ -1249,7 +1249,7 @@ void lombscargleCPUBatchError(unsigned int * objectId, DTYPE * timeX,  DTYPE * m
 		uint64_t pgramWriteOffset=(uint64_t)i*(uint64_t)numFreqs;
 		//0 refers to the mode of executing sequentially inside the LS algorithm
 		lombscarglecpuError(0, &timeX[idxMin], &magY[idxMin], &magDY[idxMin], sizeDataForObject, numFreqs, minFreq, maxFreq, freqStep, pgram+pgramWriteOffset);	
-		#if NORMALIZEPGRAM==1
+		#if NORMALIZEPGRAM==1 && ERROR==0
 	  	normalizepgramsingleobject(pgram+pgramWriteOffset, &magY[idxMin], sizeDataForObject, numFreqs);
 	  	#endif
 		computePeriod(pgram+pgramWriteOffset, numFreqs, minFreq, freqStep, &foundPeriod[i], &foundPower[i]);
@@ -1316,7 +1316,7 @@ void lombscargleCPUBatch(unsigned int * objectId, DTYPE * timeX,  DTYPE * magY, 
 		//0 refers to the mode of executing sequentially inside the LS algorithm
 		lombscarglecpu(0, &timeX[idxMin], &magY[idxMin], sizeDataForObject, numFreqs, minFreq, maxFreq, freqStep, pgram+pgramWriteOffset);	
 
-		#if NORMALIZEPGRAM==1
+		#if NORMALIZEPGRAM==1 && ERROR==0
 	  	normalizepgramsingleobject(pgram+pgramWriteOffset, &magY[idxMin], sizeDataForObject, numFreqs);
 	  	#endif
 		
