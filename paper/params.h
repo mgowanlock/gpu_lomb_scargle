@@ -12,6 +12,8 @@
 #define ERROR 1 //0- standard L-S
 				//1- Based on AstroPy with error propogation and fitted mean 
 				//The astropy port uses the default configuration (only global memory, returns the pgram)
+				//And it normalizes the pgram using the standard normalization
+				//as documented here: https://docs.astropy.org/en/stable/timeseries/lombscargle.html#periodogram-algorithms
 #define PINNED 1 //0- when returning the pgram (RETURNPGRAM==1) copy using standard pageable memory
 				 //1- when returning the pgram (RETURNPGRAM==1) copy using pinned memory with SIZEPINNEDBUFFERMIB and NSTREAMS
 
@@ -35,8 +37,9 @@
 				  //for load balancing
 				  //but, this assumption can cause the GPU to run out of global memory
 				  
-#define NORMALIZEPGRAM 0 //0-unnormalized pgram
-						//1- normalize the pgram by power *= 2 / (N * mag.std() ** 2)
+#define NORMALIZEPGRAM 1 //0-unnormalized pgram when using standard L-S (without error)
+						//1- normalize the pgram when using standard L-S (without error) by power *= 2 / (N * mag.std() ** 2)
+						
 						//see: https://jakevdp.github.io/blog/2015/06/13/lomb-scargle-in-python/
 						//When using the GPU, only works when returning the pgram to the host 
 
