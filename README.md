@@ -130,7 +130,7 @@ Total time to compute batch: 0.213529\
 ## Running the program using the release implementation (CUDA GPU):
 
 After compiling the computer program, you must use the flags:
--f <path to data> -min <min frequency> -max < max frequency> -fq <Num frequencies to test> -m <Compute Mode (1-4)>
+-f < path to data> -min < min frequency> -max < max frequency> -fq < Num frequencies to test> -m < Compute Mode (1-4)>
 
 Note: For a full list of flags use ./main --help
 
