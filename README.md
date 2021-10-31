@@ -11,21 +11,29 @@ M. Gowanlock, D. Kramer, D.E. Trilling, N.R. Butler, B. Donnelly (2021)\
 Astronomy and Computing, Elsevier\
 https://doi.org/10.1016/j.ascom.2021.100472
 
+## Python Interface
+If you would like to skip all of the details regarding the C/CUDA implementation and configuration options and go directly to using the Python interface, please scroll down to the Python interface section below. 
+
 ## There are three directories:
 * data
-* paper
+* source
 * release
 
-The data directory includes test data (all datasets used in the paper). The paper directory contains the source code used for the experimental evaluation in the paper. And the release code includes both CUDA and OpenACC functionality. The difference between the paper and release code is that many of the GPU performance parameters have been selected for the user so that a reasonable default configuration can be used without extensive knowledge of the details in the paper. However, if the user is interested in all of the bells and whistles included in the paper, then they should use the paper implementation.
+The data directory includes test data (all datasets used in the paper, in addition to other datasets for testing). The source directory contains the source code used for the experimental evaluation in the paper. And the release code includes both CUDA and OpenACC functionality. The difference between the paper and release code is that many of the GPU performance parameters have been selected for the user so that a reasonable default configuration can be used without extensive knowledge of the details in the paper. However, if the user is interested in all of the bells and whistles included in the paper, then they should use the paper implementation.
 
-Note: We have updated the paper verson of the code base to include multi-GPU functionality. This functionality was not described in the paper.
+Note: We have updated the paper verson of the code base to include multi-GPU functionality. This functionality was not described in the paper. Additionally, information on the new Python interface is below
+
 
 
 ## Data:
+The following datasets were used in the paper:
   * Ida 243 in the paper from the ZTF public survey (243_normalized_ztf_filter2.txt)
-  * A single synthetic object with 3,555 measurements from the paper (8205_normalized.txt)
+  * A single synthetic object with 3,555 measurements from the paper (8205_normalized.txt, 8205_normalized_with_error.txt)
   * A batch of synthetic objects using a log-normal distribution from the paper (normalized_alltargs.200724_1_log_normal_obs.dat)
   * Period solutions for the synthetic objects above, given in the column "lcper" (simobj.200724_1.dat)
+
+Additional datasets have been used in the Python test program:
+ * SDSS_stripe82_band_z.txt
 
 ## Modes: Single Object and Batched 
 As described in the paper, the GPU algorithm allows for both a single object to be processed (e.g., a user wants to process a large time series or a large number of frequencies need to be searched). And it also allows for a batch of objects to be processed (e.g., deriving periods for an entire astronomical catalog, or near real-time period finding for ZTF or LSST during nighttime observing). 
@@ -186,4 +194,36 @@ Period: 0.564541
 Time to compute kernel: 0.018303
 Total time to compute period: 0.030021
 [Validation] Period: 0.564541
+
+## Python Interface
+The Python interface calls a C shared library of the compiled sources. You can either build the shared libraries or use the precompiled shared libraries. We recommend building them from source, because there are a couple of machine specific parameters that should be set.
+
+To build the shared libraries from source, open the Makefile in the source directory and modify the following variables (the number of GPUs and the number of physical cores on your machine). 
+```
+-DNUMGPU=1
+-DNTHREADSCPU=16
+```
+
+Next, run the following command, which will build the shared libraries. Note that these binaries are large, as they are compiled to maximize GPU compatibility, and thus are compiled for the following compute capabilities: 6.0, 6.1, 7.0, 7.2, 7.5, 8.0 (these encompass Pascal, Volta, Turing, and Ampere architectures). We have tested that these binaries work on Pascal (6.1) and Turing (7.5) architectures.
+
+```
+$make make_python_shared_libs
+```
+
+This will generate four shared libraries: libpylserrordouble.so, libpylserrorfloat.so, libpylsnoerrordouble.so, and libpylsnoerrorfloat.so. If you do not want to compile these, copies have been provided in the repository.
+
+Make sure to store your shared libraries in a location where they will be searched/accessible by Python. To eliminate issues with this, we have set up our Python test program to search its directory for the shared libraries. 
+
+Now, to use the Python interface, there are two files. The main module is lombscarglegpu.py, which is imported by the test example program, lombscargle_test_example.py. 
+
+The Python module contains a few additional options over the C interface. 
+* It allows you to hide the output of the C shared libraries by setting the verbose mode flag to false.
+* If you are unsure of the number of frequencies to use, it employs the method by Richards et al. (2011) for selecting the number of frequencies.
+* By default, it will use 32 bit floating point precision (FP32) over FP64. This is because many consumer grade GPUs have limited hardware dedicated to FP64. However, the user may wish to change this to FP64.
+
+For each object, the Python module will return the period at the highest peak in the periodogram, and the periodogram itself.
+
+
+
+
 
