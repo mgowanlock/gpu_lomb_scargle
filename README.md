@@ -223,6 +223,7 @@ The Python module contains a few additional options over the C interface.
 
 For each object, the Python module will return the period at the highest peak in the periodogram, and the periodogram itself.
 
+The output of lombscargle_test_example.py is stored in python_output_lomb_scargle_test_example.txt in the python_interface_output directory.
 
 
 
