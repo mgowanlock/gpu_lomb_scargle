@@ -1,0 +1,93 @@
+******************
+Example 1: Compute single object on the GPU with error
+******************
+[Python] Filename: 8205_normalized_with_error.txt
+[Python] Number of rows in file: 3555
+[Python] Unique objects: 1
+[Python] Size of pgram in elems: 330000 (0.001229 GiB)
+[Python] Period for object: 0.564739
+******************
+Example 2: Compute single object on the CPU with error (same as above, but on the CPU)
+******************
+[Python] Filename: 8205_normalized_with_error.txt
+[Python] Number of rows in file: 3555
+[Python] Unique objects: 1
+[Python] Size of pgram in elems: 330000 (0.001229 GiB)
+[Python] Period for object: 0.564739
+******************
+Example 3: Compute single object on the GPU without error
+******************
+[Python] Filename: 8205_normalized.txt
+[Python] Number of rows in file: 3555
+[Python] Unique objects: 1
+[Python] Size of pgram in elems: 330000 (0.001229 GiB)
+[Python] Period for object: 0.564729
+******************
+Example 4: Compute single object on the CPU without error (same as above, but on the CPU)
+******************
+[Python] Filename: 8205_normalized.txt
+[Python] Number of rows in file: 3555
+[Python] Unique objects: 1
+[Python] Size of pgram in elems: 330000 (0.001229 GiB)
+[Python] Period for object: 0.564729
+******************
+Example 5: Compute batch of objects on the GPU with error
+******************
+[Python] Filename: SDSS_stripe82_band_z.txt
+[Python] Number of rows in file: 7064
+[Python] Unique objects: 136
+[Python] Size of pgram in elems: 44880000 (0.167191 GiB)
+[Python] Sum of all periods: 100.192608
+[Python] Period of first object: objId: 2794912 period: 0.346204
+[Python] Period of second object: objId: 1096833 period: 0.554794
+[Python] Period of third object: objId: 1912140 period: 0.570158
+******************
+Example 6: Compute batch of objects on the CPU with error (same as above, but on the CPU)
+******************
+[Python] Filename: SDSS_stripe82_band_z.txt
+[Python] Number of rows in file: 7064
+[Python] Unique objects: 136
+[Python] Size of pgram in elems: 44880000 (0.167191 GiB)
+[Python] Sum of all periods: 96.527661
+[Python] Period of first object: objId: 2794912 period: 0.529526
+[Python] Period of second object: objId: 1096833 period: 0.554794
+[Python] Period of third object: objId: 1912140 period: 0.570158
+******************
+Example 7: Compute batch of objects on the GPU without error
+******************
+[Python] Filename: normalized_alltargs.200724_1_log_normal_obs.dat
+[Python] Number of rows in file: 165221
+[Python] Unique objects: 999
+[Python] Size of pgram in elems: 329670000 (1.228116 GiB)
+[Python] Sum of all periods: 753.793171
+[Python] Period of first object: objId: 0 period: 0.283357
+[Python] Period of second object: objId: 1 period: 1.108697
+[Python] Period of third object: objId: 10 period: 1.028383
+******************
+Example 8: Compute batch of objects on the CPU without error (same as above, but on the CPU)
+******************
+[Python] Filename: normalized_alltargs.200724_1_log_normal_obs.dat
+[Python] Number of rows in file: 165221
+[Python] Unique objects: 999
+[Python] Size of pgram in elems: 329670000 (1.228116 GiB)
+[Python] Sum of all periods: 753.793291
+[Python] Period of first object: objId: 0 period: 0.283357
+[Python] Period of second object: objId: 1 period: 1.108697
+[Python] Period of third object: objId: 10 period: 1.028383
+******************
+Example 9: Compute batch of objects on the GPU without error using auto-generated frequencies
+******************
+[Python] Filename: normalized_alltargs.200724_1_log_normal_obs.dat
+*********************
+Automatically generating the number of frequencies based on maximum observing window:
+Max. Observing Window: 119.989583, Delta f: 0.000833
+Number of frequencies:  11878
+*********************
+[Python] Number of rows in file: 165221
+[Python] Unique objects: 999
+[Python] Size of pgram in elems: 11866122 (0.044205 GiB)
+[Python] Sum of all periods: 750.493924
+[Python] Period of first object: objId: 0 period: 0.283374
+[Python] Period of second object: objId: 1 period: 1.108891
+[Python] Period of third object: objId: 10 period: 1.028122
+Verbose mode is false. Redirecting C shared library stdout to /dev/null
