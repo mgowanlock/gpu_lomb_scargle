@@ -16,8 +16,9 @@ If you would like to skip all of the details regarding the C/CUDA implementation
 
 ## There are three directories:
 * data
-* source
+* python_interface_output
 * release
+* source
 
 The data directory includes test data (all datasets used in the paper, in addition to other datasets for testing). The source directory contains the source code used for the experimental evaluation in the paper. And the release code includes both CUDA and OpenACC functionality. The difference between the paper and release code is that many of the GPU performance parameters have been selected for the user so that a reasonable default configuration can be used without extensive knowledge of the details in the paper. However, if the user is interested in all of the bells and whistles included in the paper, then they should use the paper implementation.
 
