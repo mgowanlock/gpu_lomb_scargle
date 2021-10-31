@@ -1,32 +1,20 @@
 
-
 SOURCES = main.cu 
-CUDAOBJECTS = main.o kernel.o
+CUDAOBJECTS = main.o
 CC = nvcc
 EXECUTABLE = main
-COMPUTE_CAPABILITY = -arch=compute_75 -code=sm_75
 
-
-FLAGS = -std=c++11 -O3 -Xcompiler -fopenmp  -lcuda -lineinfo -g
+FLAGS =  -std=c++14 -O3 -Xcompiler -fopenmp -arch=compute_60 -code=sm_60 -lcuda -lineinfo
 CFLAGS = -c -D_MWAITXINTRIN_H_INCLUDED -D_FORCE_INLINES
 
 
 all: $(EXECUTABLE)
 
-
-
-
-main.o: main.cu structs.h
-	$(CC) $(FLAGS) $(CFLAGS) $(COMPUTE_CAPABILITY) main.cu 
-
-kernel.o: kernel.cu structs.h kernel.h
-	$(CC) $(FLAGS) $(CFLAGS) $(COMPUTE_CAPABILITY) kernel.cu 
+main.o: main.cu kernel.h
+	$(CC) $(FLAGS) $(CFLAGS) main.cu 
 
 $(EXECUTABLE): $(OBJECTS) $(CUDAOBJECTS)
 	$(CC) $(FLAGS) $^ -o $@
-
-
-
 
 clean:
 	rm $(CUDAOBJECTS)

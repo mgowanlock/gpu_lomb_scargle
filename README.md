@@ -129,14 +129,14 @@ Total time to compute batch: 0.213529\
 
 ## Running the program using the release implementation (CUDA GPU):
 
-After compiling the computer program, you must enter the following command line arguments:
-\<dataset file name\> \<minimum frequency\> \<maximum frequency\> \<number of frequencies to search\> 
-\<DoubleMode(1or0)\> \<PrintMode(1or0)\> \<ErrorMode(1or0)\>
-  
+After compiling the computer program, you must use the flags:
+-f < path to data> -min < min frequency> -max < max frequency> -fq < Num frequencies to test> -m < Compute Mode (1-4)>
+
+Note: For a full list of flags use ./main --help
 
 Example using floats and errors on batch of objects:
 
- ./main ../data/normalized_alltargs.200724_1_log_normal_obs_with_error.dat 1.005 150.796 10000 0 0 1
+ ./main -f ../data/normalized_alltargs.200724_1_log_normal_obs_with_error.dat -min 1.005 -max 150.796 -fq 10000 -m 1
 
 Load CUDA runtime (initialization overhead)
 
@@ -165,7 +165,7 @@ Total time to compute batch: 0.469490
 
 Example using doubles with no error on a single object: 
 
-./main ../data/8205_normalized.txt 3.14159 150.79645 10000 1 0 0
+./main -f ../data/8205_normalized.txt -min 3.14159 -max 150.79645 -fq 10000 -m 4
 
 Load CUDA runtime (initialization overhead)
 
